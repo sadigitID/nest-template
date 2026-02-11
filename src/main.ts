@@ -55,7 +55,7 @@ async function bootstrap(): Promise<void> {
 
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('docs', app, document);
-    logger.log(`Swagger documentation available at /${globalPrefix}/docs`);
+    logger.log(`Swagger documentation available at /docs`);
   }
 
   // Start server

@@ -1,6 +1,8 @@
 # NestJS Template
 
-Template project NestJS siap pakai untuk development REST API modern dengan konfigurasi lengkap untuk TypeScript, linting, formatting, testing, dan deployment.
+[NestJS](https://nestjs.com/) adalah framework backend untuk Node.js yang terinspirasi dari Angular. NestJS mempermudah pembuatan REST API yang terstruktur, scalable, dan mudah di-maintain karena menggunakan konsep **module**, **controller**, dan **service** untuk memisahkan tanggung jawab kode secara rapi.
+
+Template ini adalah starter project NestJS yang sudah dikonfigurasi lengkap dan siap pakai. Kamu tinggal clone, install, dan langsung mulai coding fitur tanpa perlu setup dari nol. Semua best practice (TypeScript strict mode, linting, formatting, testing, CI/CD, Docker) sudah terpasang.
 
 ## Tech Stack
 
@@ -48,8 +50,12 @@ Template project NestJS siap pakai untuk development REST API modern dengan konf
 
 ### Membuat Project Baru
 
+> **Apa itu `degit`?** `degit` adalah tool untuk meng-clone repository GitHub tanpa history git-nya. Jadi kamu dapat project bersih, siap dijadikan project baru. Tidak perlu install `degit` secara global — `npx` akan otomatis menjalankannya.
+>
+> **Kenapa `pnpm`?** `pnpm` adalah package manager yang lebih cepat dan hemat disk dibandingkan `npm`. Jika belum terinstall, jalankan `npm install -g pnpm` terlebih dahulu.
+
 ```bash
-# Clone template
+# Clone template (download tanpa history git)
 npx degit sadigitid/nest-template nama-project
 cd nama-project
 
@@ -65,6 +71,83 @@ pnpm run dev
 
 API berjalan di [http://localhost:3000/api](http://localhost:3000/api).
 Swagger docs di [http://localhost:3000/docs](http://localhost:3000/docs).
+
+> **Catatan:** Swagger docs ada di `/docs` (bukan `/api/docs`). Path Swagger terpisah dari global prefix `/api` yang digunakan oleh endpoint API.
+
+## Coba API Pertamamu
+
+Setelah dev server berjalan, coba langkah-langkah berikut untuk memastikan semuanya bekerja:
+
+### 1. Buka Swagger UI
+
+Buka browser dan akses [http://localhost:3000/docs](http://localhost:3000/docs). Di sini kamu bisa melihat semua endpoint yang tersedia, mencoba request langsung dari browser, dan melihat format request/response.
+
+### 2. Cek Health Endpoint
+
+```bash
+curl http://localhost:3000/api/health
+```
+
+Response yang diharapkan:
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "ok",
+    "timestamp": "2024-01-01T00:00:00.000Z"
+  }
+}
+```
+
+### 3. Buat User Baru
+
+```bash
+curl -X POST http://localhost:3000/api/users \
+  -H "Content-Type: application/json" \
+  -d '{"name": "John Doe", "email": "john@example.com"}'
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "...",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "role": "user",
+    "createdAt": "...",
+    "updatedAt": "..."
+  }
+}
+```
+
+### 4. Lihat Daftar Users
+
+```bash
+curl http://localhost:3000/api/users
+```
+
+> **Tips:** Kalau tidak terbiasa dengan `curl`, kamu juga bisa menggunakan [Postman](https://www.postman.com/) atau langsung klik "Try it out" di Swagger UI.
+
+## Konsep Dasar NestJS
+
+Jika kamu baru pertama kali menggunakan NestJS, berikut konsep-konsep penting yang perlu dipahami:
+
+| Konsep | Penjelasan |
+| --- | --- |
+| **Module** | "Wadah" yang mengelompokkan fitur terkait (controller + service). Setiap fitur (users, products, dll) punya module-nya sendiri. Mirip seperti folder yang mengorganisir kode per fitur. |
+| **Controller** | Bertugas menerima HTTP request dan mengembalikan response. Controller **tidak boleh** berisi business logic — tugasnya hanya "terima request, panggil service, kembalikan hasilnya". |
+| **Service** | Tempat semua **business logic** berada. Misalnya: validasi data, cek duplikasi, kalkulasi, dsb. Service di-inject ke controller melalui constructor. |
+| **DTO (Data Transfer Object)** | Class yang mendefinisikan **bentuk data** yang diterima oleh API. DTO juga berisi aturan validasi (wajib diisi, harus email, minimal 2 karakter, dsb). |
+| **Decorator** | Anotasi khusus (diawali `@`) yang menambahkan metadata atau perilaku pada class/method/property. Contoh: `@Controller()`, `@Get()`, `@Body()`, `@Injectable()`. |
+| **Guard** | "Penjaga" yang menentukan apakah sebuah request boleh dilanjutkan atau tidak. Biasanya digunakan untuk authentication & authorization. |
+| **Interceptor** | Code yang berjalan **sebelum dan sesudah** handler (controller method). Digunakan untuk transformasi response, logging, caching, dsb. |
+| **Pipe** | Digunakan untuk **transformasi** dan **validasi** data input sebelum masuk ke handler. Contoh: `ParseUuidPipe` memastikan parameter adalah UUID yang valid. |
+| **Filter** | Menangkap exception/error dan mengubahnya menjadi response yang terstruktur. Template ini punya `HttpExceptionFilter` yang memformat semua error menjadi JSON yang konsisten. |
+| **Dependency Injection (DI)** | Pattern di mana NestJS otomatis menyediakan ("meng-inject") instance yang dibutuhkan. Kamu cukup deklarasikan di constructor, NestJS yang membuat dan menyediakannya. |
 
 ## Struktur Project
 
@@ -247,7 +330,10 @@ export class AppModule {}
 pnpm add @nestjs/typeorm typeorm pg
 ```
 
-2. Uncomment database config di `.env` dan `app.config.ts`
+2. Uncomment konfigurasi database di dua file berikut:
+
+   - **`.env`** — hapus tanda `#` pada variabel `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, dan `DB_NAME`
+   - **`src/config/app.config.ts`** — hapus comment pada blok `database: { ... }` (baris 16-22)
 
 3. Import TypeORM di `app.module.ts`:
 
@@ -333,4 +419,4 @@ MIT
 - [Swagger/OpenAPI](https://swagger.io/)
 - [Conventional Commits](https://www.conventionalcommits.org/)
 - **[RULES.md](./RULES.md)** - Aturan development lengkap
-- **[CLAUDE.md](./CLAUDE.md)** - AI code review guidelines
+- **[CLAUDE.md](./CLAUDE.md)** - Panduan untuk AI code review tools (seperti Claude, GitHub Copilot, dsb). File ini **bukan untuk dibaca manusia** — isinya instruksi teknis agar AI bisa membantu review kode sesuai standar project ini.

@@ -2,6 +2,15 @@
 
 Dokumen ini mendefinisikan aturan dan standar development untuk project NestJS. Semua anggota tim wajib mengikuti panduan ini.
 
+> **Istilah yang sering muncul dalam dokumen ini:**
+>
+> - **DTO (Data Transfer Object)** — Class yang mendefinisikan bentuk/format data yang diterima atau dikirim API. DTO juga berisi aturan validasi input (wajib diisi, harus email, dsb).
+> - **DI (Dependency Injection)** — Pattern di mana NestJS otomatis menyediakan instance class yang dibutuhkan. Kamu cukup tulis di constructor, NestJS yang membuat dan menyediakannya.
+> - **DI Container** — Sistem internal NestJS yang mengelola semua instance (service, controller, dsb) dan meng-inject-nya saat dibutuhkan.
+> - **Cross-cutting concerns** — Kode yang dibutuhkan di banyak tempat tapi bukan bagian dari fitur spesifik. Contoh: logging, error handling, validasi, security. Di template ini, kode tersebut ada di folder `src/common/`.
+> - **`registerAs`** — Fungsi dari `@nestjs/config` untuk membuat konfigurasi yang typed dan terkelompok. Lihat contohnya di `src/config/app.config.ts`.
+> - **`!` (Definite Assignment Assertion)** — Tanda seru setelah nama property di TypeScript (contoh: `name!: string`). Ini memberitahu TypeScript bahwa property ini pasti akan diisi (oleh class-validator), meskipun tidak diisi di constructor.
+
 ## Daftar Isi
 
 - [Prinsip Umum](#prinsip-umum)
@@ -25,6 +34,8 @@ Dokumen ini mendefinisikan aturan dan standar development untuk project NestJS. 
 
 ## Prinsip Umum
 
+Berikut adalah prinsip-prinsip dasar yang menjadi fondasi semua aturan di dokumen ini. Jika ragu, selalu kembali ke prinsip-prinsip ini:
+
 1. **Readability First** - Code dibaca lebih sering daripada ditulis
 2. **Explicit over Implicit** - Buat niat sejelas mungkin
 3. **Separation of Concerns** - Controller, Service, dan Module punya tanggung jawab masing-masing
@@ -38,6 +49,8 @@ Dokumen ini mendefinisikan aturan dan standar development untuk project NestJS. 
 
 ## Aturan Arsitektur
 
+NestJS menggunakan arsitektur berlapis (layered architecture) untuk memisahkan tanggung jawab kode. Setiap layer punya tugas spesifik dan tidak boleh mencampuri tugas layer lain.
+
 ### Layered Architecture
 
 ```
@@ -45,8 +58,10 @@ Controller Layer  → HTTP concerns (routes, params, status codes, Swagger)
        ↓
 Service Layer     → Business logic (validation, transformasi, orchestration)
        ↓
-Repository Layer  → Data access (database queries, caching)
+Data Layer        → Akses data (database, in-memory storage, external API)
 ```
+
+> **Catatan:** Template ini menggunakan **in-memory storage** (array di dalam service) sebagai contoh sederhana. Ketika kamu menambahkan database (TypeORM, Prisma, dsb), data access akan dipindahkan ke **Repository layer** yang terpisah dari service. Lihat panduan "Menambahkan Database" di README.md.
 
 ### Aturan per Layer
 
@@ -54,7 +69,7 @@ Repository Layer  → Data access (database queries, caching)
 | -------------- | -------------------------------------------- | ----------------------------------------------- |
 | **Controller** | Parsing params, DTO validation, HTTP status  | Business logic, database queries, direct imports |
 | **Service**    | Business logic, exception throwing, logging  | HTTP-specific code, request/response objects     |
-| **Repository** | Database queries, data mapping               | Business logic, HTTP concerns                    |
+| **Data Layer** | Database queries, data mapping               | Business logic, HTTP concerns                    |
 
 ### Module Boundaries
 
@@ -78,6 +93,8 @@ export class UsersModule {}
 ---
 
 ## Aturan Penamaan File
+
+Konsistensi penamaan file dan variabel sangat penting agar codebase mudah dinavigasi dan dipahami oleh semua anggota tim.
 
 ### Konvensi Penamaan
 
@@ -155,6 +172,8 @@ const data: any = {};    // Selalu gunakan type yang spesifik
 
 ## Aturan Struktur Folder
 
+Struktur folder yang konsisten mempermudah navigasi project. Semua file harus ditempatkan di folder yang tepat sesuai fungsinya.
+
 ### Folder `src/`
 
 ```
@@ -210,6 +229,8 @@ src/
 
 ## Aturan Controller
 
+Controller adalah "pintu masuk" request HTTP. Controller menerima request, memvalidasi input (via DTO dan Pipe), lalu menyerahkan pemrosesan ke service. Controller **tidak boleh** berisi business logic apapun.
+
 ### Struktur Controller
 
 ```typescript
@@ -263,12 +284,15 @@ export class UsersController {
 
 ## Aturan Service
 
+Service adalah tempat semua business logic berada. Controller hanya menerima request dan memanggil service — semua logika pemrosesan, validasi bisnis, dan penanganan error domain dilakukan di service.
+
 ### Struktur Service
 
 ```typescript
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
+  private readonly users: User[] = []; // Contoh: in-memory storage
 
   constructor(
     // Inject dependencies via constructor
@@ -279,11 +303,15 @@ export class UsersService {
     // Business logic di sini
     this.logger.log(`Creating user: ${createUserDto.email}`);
 
-    // Throw custom exceptions untuk error bisnis
-    if (exists) {
+    // Cek duplikasi sebelum menyimpan
+    const existing = this.users.find((u) => u.email === createUserDto.email);
+    if (existing) {
       throw new DuplicateEntityException('User', 'email');
     }
 
+    // Buat user baru dan simpan
+    const user: User = { id: uuidv4(), ...createUserDto };
+    this.users.push(user);
     return user;
   }
 }
@@ -300,6 +328,8 @@ export class UsersService {
 ---
 
 ## Aturan DTO & Validation
+
+DTO (Data Transfer Object) mendefinisikan bentuk data yang diterima oleh API endpoint. Setiap property di DTO harus punya decorator validasi dari `class-validator` dan decorator dokumentasi dari `@nestjs/swagger`.
 
 ### Struktur DTO
 
@@ -337,6 +367,8 @@ export class CreateUserDto {
 
 ## Aturan Module
 
+Module adalah unit organisasi utama di NestJS. Setiap fitur/domain memiliki module-nya sendiri yang mengelompokkan controller, service, dan dependencies terkait.
+
 ### Struktur Module
 
 ```typescript
@@ -359,6 +391,8 @@ export class UsersModule {}
 ---
 
 ## Aturan TypeScript
+
+Project ini menggunakan TypeScript dengan **strict mode** aktif. Ini berarti compiler akan menangkap lebih banyak error saat development, bukan saat production. Jangan nonaktifkan strict mode.
 
 ### Strict Mode
 
@@ -412,6 +446,8 @@ async function fetchData(id: string): Promise<Data> {
 
 ## Aturan Error Handling
 
+Error handling yang konsisten memastikan client selalu mendapat response yang terstruktur dan informatif, sementara error detail hanya muncul di log server.
+
 ### Custom Exceptions
 
 Gunakan custom exceptions dari `common/exceptions/`:
@@ -437,6 +473,8 @@ throw new BusinessException('Insufficient balance');
 ---
 
 ## Aturan Testing
+
+Testing memastikan code bekerja sesuai harapan dan tidak rusak saat ada perubahan. Template ini menggunakan Jest untuk unit test dan Supertest untuk E2E test.
 
 ### Struktur Test
 
@@ -511,6 +549,8 @@ describe('POST /api/users', () => {
 
 ## Aturan Git Workflow
 
+Konsistensi dalam naming branch dan commit message mempermudah tracking perubahan dan kolaborasi tim.
+
 ### Branch Naming
 
 ```
@@ -564,6 +604,8 @@ test: add unit tests for UsersService
 
 ## Aturan Code Style
 
+Aturan formatting dan import order berikut diterapkan secara otomatis melalui ESLint dan Prettier. Pastikan editor kamu sudah terpasang extension ESLint dan Prettier.
+
 ### Import Order (Wajib)
 
 ```typescript
@@ -612,6 +654,8 @@ Artinya:
 
 ## Aturan Keamanan
 
+Keamanan adalah prioritas utama. Berikut aturan keamanan yang wajib diikuti untuk mencegah vulnerability umum.
+
 ### Input Validation
 
 ```typescript
@@ -654,6 +698,8 @@ export class HealthController { ... }
 ---
 
 ## Aturan Performa
+
+Performa yang baik dimulai dari kebiasaan coding yang benar. Berikut aturan untuk memastikan API tetap responsif.
 
 ### Async Operations
 
